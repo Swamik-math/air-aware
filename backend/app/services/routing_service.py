@@ -96,6 +96,25 @@ def _weights_from_preference(preference: str, payload_weights: Dict) -> Dict[str
     return table.get(preference, table["healthiest"])
 
 
+def _pick_route_indexes(routes: List[Dict]) -> Tuple[int, int, int]:
+    if not routes:
+        return 0, 0, 0
+
+    shortest_index = min(
+        range(len(routes)),
+        key=lambda i: (float(routes[i].get("distance_km", float("inf"))), i),
+    )
+    fastest_index = min(
+        range(len(routes)),
+        key=lambda i: (float(routes[i].get("duration_min", float("inf"))), i),
+    )
+
+    remaining = [i for i in range(len(routes)) if i not in {shortest_index, fastest_index}]
+    healthiest_index = remaining[0] if remaining else shortest_index
+
+    return shortest_index, fastest_index, healthiest_index
+
+
 def build_routes(
     source: Tuple[float, float],
     destination: Tuple[float, float],
@@ -173,17 +192,17 @@ def build_routes(
             selected_routes = []
 
     if selected_routes:
-        # Map API geometry ensures map polylines follow actual drivable roads.
-        shortest["geometry"] = selected_routes[0]["geometry"]
-        shortest["distance_km"] = round(selected_routes[0]["distance_km"], 3)
-        shortest["duration_min"] = round(selected_routes[0]["duration_min"], 1)
+        shortest_index, fastest_index, healthiest_index = _pick_route_indexes(selected_routes)
 
-        fastest_index = 1 if len(selected_routes) > 1 else 0
+        # Map API geometry ensures map polylines follow actual drivable roads.
+        shortest["geometry"] = selected_routes[shortest_index]["geometry"]
+        shortest["distance_km"] = round(selected_routes[shortest_index]["distance_km"], 3)
+        shortest["duration_min"] = round(selected_routes[shortest_index]["duration_min"], 1)
+
         fastest["geometry"] = selected_routes[fastest_index]["geometry"]
         fastest["distance_km"] = round(selected_routes[fastest_index]["distance_km"], 3)
         fastest["duration_min"] = round(selected_routes[fastest_index]["duration_min"], 1)
 
-        healthiest_index = 2 if len(selected_routes) > 2 else fastest_index
         healthiest["geometry"] = selected_routes[healthiest_index]["geometry"]
         healthiest["distance_km"] = round(selected_routes[healthiest_index]["distance_km"], 3)
         healthiest["duration_min"] = round(selected_routes[healthiest_index]["duration_min"], 1)

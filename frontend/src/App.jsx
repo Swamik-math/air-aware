@@ -28,7 +28,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [routes, setRoutes] = useState(null);
+  const [routeAnimationToken, setRouteAnimationToken] = useState(0);
   const [selectedRoute, setSelectedRoute] = useState("healthiest");
+  const [hoveredRoute, setHoveredRoute] = useState("");
+  const [panelExpanded, setPanelExpanded] = useState(false);
   const [sourcePoint, setSourcePoint] = useState({ lat: 28.6139, lon: 77.2090 });
   const [destinationPoint, setDestinationPoint] = useState({ lat: 28.5355, lon: 77.391 });
 
@@ -95,7 +98,9 @@ export default function App() {
       };
       const result = await getRoutes(payload);
       setRoutes(result);
+      setRouteAnimationToken((prev) => prev + 1);
       setSelectedRoute(preference);
+      setPanelExpanded(true);
     } catch (err) {
       const message = err?.response?.data?.error || err?.message || "Route calculation failed. Check source/destination.";
       setError(message);
@@ -129,16 +134,42 @@ export default function App() {
   }
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        <h1>AirAware</h1>
-        <p className="subtitle">Bengaluru Low AQI Route Optimization</p>
+    <div className={`layout ${panelExpanded ? "sheet-expanded" : "sheet-collapsed"}`}>
+      <main className="content">
+        <MapView
+          source={[sourcePoint.lat, sourcePoint.lon]}
+          destination={[destinationPoint.lat, destinationPoint.lon]}
+          routes={routes}
+          animationToken={routeAnimationToken}
+          selectedRoute={selectedRoute}
+          hoveredRoute={hoveredRoute}
+          onSelectRoute={setSelectedRoute}
+          onHoverRoute={setHoveredRoute}
+        />
+      </main>
+
+      <aside className={`sidebar ${panelExpanded ? "expanded" : "collapsed"}`}>
+        <button
+          type="button"
+          className="sheet-toggle"
+          onClick={() => setPanelExpanded((prev) => !prev)}
+          aria-expanded={panelExpanded}
+          aria-label="Toggle route controls"
+        >
+          <span className="sheet-handle" />
+        </button>
+
+        <div className="brand-row">
+          <h1>AirAware</h1>
+          <p className="subtitle">Bengaluru</p>
+        </div>
 
         <form onSubmit={handleFindRoutes} className="form-grid">
           <div className="location-field">
             <label>
               Source
               <input
+                className="input-control"
                 value={sourceText}
                 onChange={(e) => setSourceText(e.target.value)}
                 placeholder="Enter source in Bengaluru"
@@ -164,6 +195,7 @@ export default function App() {
             <label>
               Destination
               <input
+                className="input-control"
                 value={destinationText}
                 onChange={(e) => setDestinationText(e.target.value)}
                 placeholder="Enter destination in Bengaluru"
@@ -185,19 +217,38 @@ export default function App() {
             )}
           </div>
 
-          <label>
-            Preference
-            <select value={preference} onChange={(e) => setPreference(e.target.value)}>
-              <option value="shortest">Shortest</option>
-              <option value="fastest">Fastest</option>
-              <option value="healthiest">Healthiest</option>
-            </select>
-          </label>
+          <div className="mode-wrap">
+            <p className="control-title">Route Priority</p>
+            <div className="mode-toggle" role="tablist" aria-label="Route priority">
+              <button
+                type="button"
+                className={`mode-btn ${preference === "shortest" ? "active" : ""}`}
+                onClick={() => setPreference("shortest")}
+              >
+                Shortest
+              </button>
+              <button
+                type="button"
+                className={`mode-btn ${preference === "fastest" ? "active" : ""}`}
+                onClick={() => setPreference("fastest")}
+              >
+                Fastest
+              </button>
+              <button
+                type="button"
+                className={`mode-btn ${preference === "healthiest" ? "active" : ""}`}
+                onClick={() => setPreference("healthiest")}
+              >
+                Healthiest
+              </button>
+            </div>
+          </div>
 
           <div className="weights">
-            <p>Dynamic Weights</p>
-            <label>
-              Distance: {weights.distance}
+            <p className="control-title">Dynamic Weights</p>
+            <label className="weight-row">
+              <span>Distance</span>
+              <strong>{weights.distance}</strong>
               <input
                 type="range"
                 min="0.05"
@@ -207,8 +258,9 @@ export default function App() {
                 onChange={(e) => setWeight("distance", e.target.value)}
               />
             </label>
-            <label>
-              AQI: {weights.aqi}
+            <label className="weight-row">
+              <span>AQI</span>
+              <strong>{weights.aqi}</strong>
               <input
                 type="range"
                 min="0.05"
@@ -218,8 +270,9 @@ export default function App() {
                 onChange={(e) => setWeight("aqi", e.target.value)}
               />
             </label>
-            <label>
-              Population: {weights.density}
+            <label className="weight-row">
+              <span>Population</span>
+              <strong>{weights.density}</strong>
               <input
                 type="range"
                 min="0.05"
@@ -231,25 +284,22 @@ export default function App() {
             </label>
           </div>
 
-          <button type="submit" disabled={loading}>
+          <button type="submit" className="primary-btn" disabled={loading}>
             {loading ? "Calculating..." : "Find Routes"}
           </button>
         </form>
 
         {error && <p className="error">{error}</p>}
 
-        <RoutePanel routes={routes} selectedRoute={selectedRoute} onSelectRoute={setSelectedRoute} />
-      </aside>
-
-      <main className="content">
-        <MapView
-          source={[sourcePoint.lat, sourcePoint.lon]}
-          destination={[destinationPoint.lat, destinationPoint.lon]}
+        <RoutePanel
           routes={routes}
+          loading={loading}
           selectedRoute={selectedRoute}
+          hoveredRoute={hoveredRoute}
           onSelectRoute={setSelectedRoute}
+          onHoverRoute={setHoveredRoute}
         />
-      </main>
+      </aside>
     </div>
   );
 }

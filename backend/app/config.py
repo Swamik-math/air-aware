@@ -1,11 +1,13 @@
 import os
+from pathlib import Path
 
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "airaware-dev-key")
+    default_db_path = Path(__file__).resolve().parents[1] / "instance" / "airaware.db"
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:postgres@db:5432/airaware",
+        f"sqlite:///{default_db_path.as_posix()}",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     AQI_API_URL = os.getenv("AQI_API_URL", "https://api.waqi.info/feed/geo:{lat};{lon}/")

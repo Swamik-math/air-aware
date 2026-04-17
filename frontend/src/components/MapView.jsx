@@ -10,9 +10,9 @@ const MAP_ATTRIBUTION =
   "Tiles &copy; Esri - Source: Esri, Maxar, Earthstar Geographics";
 
 const routeStyles = {
-  shortest: { color: "#2563eb", weight: 5 },
-  fastest: { color: "#f59e0b", weight: 5 },
-  healthiest: { color: "#16a34a", weight: 6 }
+  shortest: { color: "#1280ff", weight: 6 },
+  fastest: { color: "#ff9f0a", weight: 6 },
+  healthiest: { color: "#32d74b", weight: 6 }
 };
 
 function normalizePoint(point) {
@@ -73,26 +73,37 @@ function FitRouteView({ source, destination, routes, selectedRoute }) {
     }
 
     if (points.length > 1) {
-      map.fitBounds(points, { padding: [28, 28], maxZoom: 15 });
+      map.fitBounds(points, { padding: [28, 28], maxZoom: 15, animate: true, duration: 1.1 });
     } else if (points.length === 1) {
-      map.setView(points[0], 14);
+      map.setView(points[0], 14, { animate: true, duration: 1.1 });
     } else {
-      map.fitBounds(BENGALURU_BOUNDS, { padding: [18, 18] });
+      map.fitBounds(BENGALURU_BOUNDS, { padding: [18, 18], animate: true, duration: 1.1 });
     }
   }, [map, source, destination, routes, selectedRoute]);
 
   return null;
 }
 
-export default function MapView({ source, destination, routes, selectedRoute, onSelectRoute }) {
+export default function MapView({
+  source,
+  destination,
+  routes,
+  animationToken,
+  selectedRoute,
+  hoveredRoute,
+  onSelectRoute,
+  onHoverRoute
+}) {
   const center = source || [12.9716, 77.5946];
   const routeEntries = routes
     ? Object.entries(routes).filter(([key]) => ["shortest", "fastest", "healthiest"].includes(key))
     : [];
+  const selected = routes?.[selectedRoute];
   const orderedRoutes = [
     ...routeEntries.filter(([key]) => key !== selectedRoute),
     ...routeEntries.filter(([key]) => key === selectedRoute)
   ];
+
 
   return (
     <div className="map-shell">
@@ -128,13 +139,15 @@ export default function MapView({ source, destination, routes, selectedRoute, on
         {orderedRoutes.map(([key, route]) => {
           const style = routeStyles[key];
           const isSelected = key === selectedRoute;
+          const isHovered = key === hoveredRoute;
           const geometry = resolveRouteGeometry(route, source, destination);
 
           return (
-            <Fragment key={`route-${key}`}>
+            <Fragment key={`route-${key}-${animationToken}`}>
               {isSelected && (
                 <Polyline
                   positions={geometry}
+                  className="route-line route-outline"
                   pathOptions={{
                     color: "#ffffff",
                     weight: style.weight + 8,
@@ -144,20 +157,32 @@ export default function MapView({ source, destination, routes, selectedRoute, on
               )}
               <Polyline
                 positions={geometry}
+                className={`route-line route-main route-${key} ${isSelected ? "route-animate" : ""} ${isHovered ? "route-hover" : ""}`}
                 eventHandlers={{
-                  click: () => onSelectRoute?.(key)
+                  click: () => onSelectRoute?.(key),
+                  mouseover: () => onHoverRoute?.(key),
+                  mouseout: () => onHoverRoute?.("")
                 }}
                 pathOptions={{
                   color: style.color,
-                  weight: isSelected ? style.weight + 2 : 3,
-                  opacity: isSelected ? 0.98 : 0.25,
-                  dashArray: isSelected ? undefined : "8 10"
+                  lineCap: "round",
+                  lineJoin: "round",
+                  weight: isSelected ? style.weight + 1 : isHovered ? style.weight : 4,
+                  opacity: isSelected ? 0.96 : isHovered ? 0.68 : 0.3,
+                  dashArray: isSelected || isHovered ? undefined : "7 10"
                 }}
               />
             </Fragment>
           );
         })}
       </MapContainer>
+
+      {selected && (
+        <div className="map-hud">
+          <p className="map-hud-title">{selectedRoute.charAt(0).toUpperCase() + selectedRoute.slice(1)} selected</p>
+          <p>{selected.distance_km} km · {selected.duration_min} min · AQI {selected.avg_aqi}</p>
+        </div>
+      )}
     </div>
   );
 }
